@@ -8,7 +8,7 @@ from telegram.error import BadRequest
 
 # -------------------- Конфиг из окружения --------------------
 TELEGRAM_TOKEN = os.getenv("8430427231:AAGD49Ns1XEkFH6wHKg0HNk1Vkw0VVKAjhE")
-OPENAI_API_KEY = os.getenv("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")
+OPENAI_API_KEY = os.getenv("")
 
 # Базовый публичный URL приложения (Render подставляет RENDER_EXTERNAL_URL)
 WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL") or ""
@@ -123,3 +123,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
