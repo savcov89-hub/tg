@@ -1,7 +1,7 @@
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL")
 PORT = int(os.getenv("PORT", "10000"))
 
-
+import os
 import openai
 import telegram
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
@@ -122,4 +122,5 @@ def main():
     updater.idle()
 
 if __name__ == '__main__':
+
     main()
