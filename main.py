@@ -1,33 +1,42 @@
+# main.py
 import os
-import logging
 import re
+import logging
 import openai
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+from telegram.error import BadRequest
 
-# === Конфиг из окружения / Render ===
-WEBHOOK_URL = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL")
-PORT = int(os.getenv("PORT", "10000"))
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# -------------------- Конфиг из окружения --------------------
+TELEGRAM_TOKEN = os.getenv("8430427231:AAGD49Ns1XEkFH6wHKg0HNk1Vkw0VVKAjhE")
+OPENAI_API_KEY = os.getenv("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")
+
+# Базовый публичный URL приложения (Render подставляет RENDER_EXTERNAL_URL)
+WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL") or ""
+# Срежем любой явный :порт (Telegram принимает вебхуки только на 80/88/443/8443)
+WEBHOOK_BASE = re.sub(r":\d+(?=/|$)", "", WEBHOOK_BASE).rstrip("/")
+PORT = int(os.getenv("PORT", "10000"))  # внутренний порт Render
 
 if not TELEGRAM_TOKEN or not OPENAI_API_KEY:
-    raise RuntimeError("Set TELEGRAM_TOKEN and OPENAI_API_KEY in Environment variables.")
+    raise RuntimeError("Нужно задать переменные окружения TELEGRAM_TOKEN и OPENAI_API_KEY.")
 
 openai.api_key = OPENAI_API_KEY
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    level=logging.INFO,
 )
+log = logging.getLogger("bot")
 
+# -------------------- Тексты --------------------
 SYSTEM_PROMPT = (
-    "Ты — эмпатичный и поддерживающий чат-бот-психолог (КПТ). "
-    "Всегда напоминай, что ты не настоящий психолог и при кризисе нужно обращаться к специалистам."
+    "Ты — эмпатичный чат-бот-психолог (КПТ). Помогай мягко и бережно, "
+    "используй сократические вопросы, напоминай, что ты не заменяешь специалиста. "
+    "При признаках кризиса направляй к горячим линиям."
 )
 
 CRISIS_MESSAGE = (
-    "⚠️ Похоже, вы говорите о причинении вреда себе. Я очень переживаю.\n\n"
-    "Я всего лишь чат-бот и не могу оказать реальную помощь. Пожалуйста, обратитесь за срочной помощью.\n"
+    "⚠️ Похоже, вы говорите о причинении вреда себе. Я переживаю за вас.\n\n"
+    "Я всего лишь чат-бот и не могу оказать реальную помощь. Пожалуйста, обратитесь за срочной помощью:\n"
     "Россия: +7 (495) 989-50-50; 8 (800) 200-01-22\n"
     "Украина: 7333; Казахстан: 150; Беларусь: 8 (800) 100-16-11"
 )
@@ -37,23 +46,24 @@ def check_for_crisis_keywords(text: str) -> bool:
     keys = [
         "суицид", "самоубийств", "покончить с собой", "убить себя",
         "хочу умереть", "не хочу жить", "наложить на себя руки",
-        "повеситься", "вскрыть вены", "спрыгнуть"
+        "повеситься", "вскрыть вены", "спрыгнуть",
     ]
     return any(k in t for k in keys)
 
-# простая память диалога по пользователю
+# Память диалога на время жизни процесса
 user_histories = {}
 
+# -------------------- Хендлеры --------------------
 def start(update, context):
-    uid = update.message.from_user.id
+    uid = update.effective_user.id
     user_histories[uid] = [{"role": "system", "content": SYSTEM_PROMPT}]
     update.message.reply_text(
-        "Здравствуйте! Я ваш КПТ-помощник. Помните: я не настоящий психолог. "
-        "В кризисной ситуации обращайтесь к специалистам. Чем могу помочь?"
+        "Привет! Я КПТ-помощник. Помните: я не заменяю психолога. В кризисе — обратитесь к специалистам.\n"
+        "О чём хотите поговорить?"
     )
 
 def handle_message(update, context):
-    uid = update.message.from_user.id
+    uid = update.effective_user.id
     text = update.message.text or ""
 
     if check_for_crisis_keywords(text):
@@ -66,40 +76,49 @@ def handle_message(update, context):
     user_histories[uid].append({"role": "user", "content": text})
 
     try:
-        # Старый SDK (openai==0.28.1) — классический ChatCompletion
+        # openai==0.28.1
         resp = openai.ChatCompletion.create(
-            model="gpt-4o-mini",            # можно оставить gpt-4o-mini
+            model="gpt-4o-mini",
             messages=user_histories[uid],
-            temperature=0.7
+            temperature=0.7,
         )
-        bot_answer = resp["choices"][0]["message"]["content"]
-        user_histories[uid].append({"role": "assistant", "content": bot_answer})
-        update.message.reply_text(bot_answer)
+        answer = resp["choices"][0]["message"]["content"]
+        user_histories[uid].append({"role": "assistant", "content": answer})
+        update.message.reply_text(answer)
     except Exception as e:
-        logging.exception("OpenAI error")
-        update.message.reply_text("Извините, случилась ошибка. Попробуйте позже.")
+        log.exception("OpenAI error")
+        update.message.reply_text("Извините, произошла ошибка. Попробуйте позже.")
 
+# -------------------- Запуск --------------------
 def main():
     updater = Updater(TELEGRAM_TOKEN, use_context=True)
     dp = updater.dispatcher
-
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
 
-    if WEBHOOK_URL:
-        # секретный путь вебхука = токен
+    if WEBHOOK_BASE:
+        # собственный маленький HTTP-сервер PTB
         updater.start_webhook(
             listen="0.0.0.0",
             port=PORT,
-            url_path=TELEGRAM_TOKEN
+            url_path=TELEGRAM_TOKEN,  # секретный путь = токен
         )
-        full_url = f"{WEBHOOK_URL.rstrip('/')}/{TELEGRAM_TOKEN}"
-        updater.bot.set_webhook(full_url)
-        logging.info("Webhook set to %s", full_url)
+        full_url = f"{WEBHOOK_BASE}/{TELEGRAM_TOKEN}"
+        try:
+            updater.bot.delete_webhook()  # на всякий случай очистим старый
+        except Exception:
+            pass
+        try:
+            updater.bot.set_webhook(full_url)
+            log.info("Webhook set to %s", full_url)
+        except BadRequest as e:
+            log.error("Failed to set webhook: %s", e)
+            raise
         updater.idle()
     else:
+        # Фолбэк на long polling (локально)
+        log.warning("WEBHOOK_BASE пуст. Запускаю long polling.")
         updater.start_polling()
-        logging.info("Started with long polling")
         updater.idle()
 
 if __name__ == "__main__":
