@@ -8,9 +8,8 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL")
 PORT = int(os.getenv("PORT", "10000"))
 
-# --- НАСТРОЙКИ ---
-TELEGRAM_TOKEN = 'ВАШ_TELEGRAM_TOKEN'  # Вставьте сюда токен от BotFather
-OPENAI_API_KEY = 'ВАШ_OPENAI_API_KEY' # Вставьте сюда ключ от OpenAI
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 openai.api_key = OPENAI_API_KEY
 
@@ -124,4 +123,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
