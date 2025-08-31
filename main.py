@@ -1,12 +1,12 @@
+import os
+import logging
+import re
+
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
+
+# === КОНФИГ ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ===
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") or os.getenv("RENDER_EXTERNAL_URL")
 PORT = int(os.getenv("PORT", "10000"))
-
-import os
-import openai
-import telegram
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-import logging
-import re # Импортируем модуль для регулярных выражений
 
 # --- НАСТРОЙКИ ---
 TELEGRAM_TOKEN = 'ВАШ_TELEGRAM_TOKEN'  # Вставьте сюда токен от BotFather
@@ -124,3 +124,4 @@ def main():
 if __name__ == '__main__':
 
     main()
+
